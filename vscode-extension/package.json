@@ -80,5 +80,9 @@
     "claude"
   ],
   "author": "Jochen Yang",
-  "license": "MIT"
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/JochenYang/minimax-status"
+  }
 }

@@ -142,25 +142,13 @@ MiniMax coding-plan 使用状态监控 VS Code 扩展，在底部状态栏实时
 在 VS Code 设置中搜索 "MiniMax Status"：
 
 - **minimaxStatus.token**: MiniMax 访问令牌
-- **minimaxStatus.groupId**: MiniMax 组 ID
+- **minimaxStatus.groupId**: MiniMax Group ID
 - **minimaxStatus.refreshInterval**: 刷新间隔（秒，范围 5-300）
 - **minimaxStatus.showTooltip**: 是否显示详细提示信息（布尔值）
-
-### JSON 配置示例
-
-```json
-{
-  "minimaxStatus.token": "sk-your-token-here",
-  "minimaxStatus.groupId": "your-group-id",
-  "minimaxStatus.refreshInterval": 10,
-  "minimaxStatus.showTooltip": true
-}
-```
 
 ## 相关链接
 
 - [MiniMax 开放平台](https://platform.minimaxi.com/)
-- [MiniMax StatusBar CLI 工具](https://www.npmjs.com/package/minimax-status)
 
 ---
 
