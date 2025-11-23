@@ -5,81 +5,88 @@ const MinimaxAPI = require('./api');
 function activate(context) {
     console.log('MiniMax Status 扩展已激活');
 
-    const api = new MinimaxAPI(context);
-    const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
-    statusBarItem.command = 'minimaxStatus.refresh';
-    statusBarItem.show();
+    try {
+        const api = new MinimaxAPI(context);
+        console.log('MiniMax API 初始化成功，token:', api.token ? '已配置' : '未配置');
 
-    let intervalId;
+        const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
+        statusBarItem.command = 'minimaxStatus.refresh';
+        statusBarItem.show();
 
-    const updateStatus = async () => {
-        try {
-            const apiData = await api.getUsageStatus();
-            const usageData = api.parseUsageData(apiData);
-            updateStatusBar(statusBarItem, usageData);
-        } catch (error) {
-            console.error('获取状态失败:', error.message);
-            statusBarItem.text = '$(warning) MiniMax';
-            statusBarItem.tooltip = `错误: ${error.message}\n点击配置`;
-            statusBarItem.color = new vscode.ThemeColor('errorForeground');
+        let intervalId;
+
+        const updateStatus = async () => {
+            try {
+                const apiData = await api.getUsageStatus();
+                const usageData = api.parseUsageData(apiData);
+                updateStatusBar(statusBarItem, usageData);
+            } catch (error) {
+                console.error('获取状态失败:', error.message);
+                statusBarItem.text = '$(warning) MiniMax';
+                statusBarItem.tooltip = `错误: ${error.message}\n点击配置`;
+                statusBarItem.color = new vscode.ThemeColor('errorForeground');
+            }
+        };
+
+        const config = vscode.workspace.getConfiguration('minimaxStatus');
+        const interval = config.get('refreshInterval', 30) * 1000;
+
+        // Initial update
+        updateStatus();
+
+        // Set up interval
+        intervalId = setInterval(updateStatus, interval);
+
+        // Subscribe to configuration changes
+        const configChangeDisposable = vscode.workspace.onDidChangeConfiguration((e) => {
+            if (e.affectsConfiguration('minimaxStatus')) {
+                api.refreshConfig();
+                const newInterval = config.get('refreshInterval', 30) * 1000;
+                clearInterval(intervalId);
+                intervalId = setInterval(updateStatus, newInterval);
+                updateStatus();
+            }
+        });
+
+        // Subscribe to refresh command
+        const refreshDisposable = vscode.commands.registerCommand('minimaxStatus.refresh', updateStatus);
+
+        // Subscribe to setup command
+        const setupDisposable = vscode.commands.registerCommand('minimaxStatus.setup', async () => {
+            const panel = showSettingsWebView(context, api, updateStatus);
+            context.subscriptions.push(panel);
+        });
+
+        // Add to subscriptions
+        context.subscriptions.push(
+            statusBarItem,
+            configChangeDisposable,
+            refreshDisposable,
+            setupDisposable
+        );
+
+        // Show setup message if credentials are missing
+        if (!api.token || !api.groupId) {
+            statusBarItem.text = '⚙️ MiniMax: 需要配置';
+            statusBarItem.color = new vscode.ThemeColor('warningForeground');
+            statusBarItem.tooltip = 'MiniMax Status 需要配置 Token 和 GroupId\n点击立即配置';
+            statusBarItem.command = 'minimaxStatus.setup';
+
+            setTimeout(() => {
+                vscode.window.showInformationMessage(
+                    '🎉 欢迎使用 MiniMax Status！\n\n需要配置您的访问令牌和组 ID 才能开始使用。',
+                    '立即配置',
+                    '稍后设置'
+                ).then((selection) => {
+                    if (selection === '立即配置') {
+                        vscode.commands.executeCommand('minimaxStatus.setup');
+                    }
+                });
+            }, 2000);
         }
-    };
-
-    const config = vscode.workspace.getConfiguration('minimaxStatus');
-    const interval = config.get('refreshInterval', 30) * 1000;
-
-    // Initial update
-    updateStatus();
-
-    // Set up interval
-    intervalId = setInterval(updateStatus, interval);
-
-    // Subscribe to configuration changes
-    const configChangeDisposable = vscode.workspace.onDidChangeConfiguration((e) => {
-        if (e.affectsConfiguration('minimaxStatus')) {
-            api.refreshConfig();
-            const newInterval = config.get('refreshInterval', 30) * 1000;
-            clearInterval(intervalId);
-            intervalId = setInterval(updateStatus, newInterval);
-            updateStatus();
-        }
-    });
-
-    // Subscribe to refresh command
-    const refreshDisposable = vscode.commands.registerCommand('minimaxStatus.refresh', updateStatus);
-
-    // Subscribe to setup command
-    const setupDisposable = vscode.commands.registerCommand('minimaxStatus.setup', async () => {
-        const panel = showSettingsWebView(context, api, updateStatus);
-        context.subscriptions.push(panel);
-    });
-
-    // Add to subscriptions
-    context.subscriptions.push(
-        statusBarItem,
-        configChangeDisposable,
-        refreshDisposable,
-        setupDisposable
-    );
-
-    // Show setup message if credentials are missing
-    if (!api.token || !api.groupId) {
-        statusBarItem.text = '⚙️ MiniMax: 需要配置';
-        statusBarItem.color = new vscode.ThemeColor('warningForeground');
-        statusBarItem.tooltip = 'MiniMax Status 需要配置 Token 和 GroupId\n点击立即配置';
-        statusBarItem.command = 'minimaxStatus.setup'; // 关键修复：点击状态栏打开设置
-
-        setTimeout(() => {
-            vscode.window.showInformationMessage(
-                '🎉 欢迎使用 MiniMax Status！\n\n需要配置您的访问令牌和组 ID 才能开始使用。',
-                '立即配置',
-                '稍后设置'
-            ).then((selection) => {
-                if (selection === '立即配置') {
-                    vscode.commands.executeCommand('minimaxStatus.setup');
-                }
-            });
-        }, 2000);
+    } catch (error) {
+        console.error('扩展激活失败:', error);
+        vscode.window.showErrorMessage('MiniMax Status 扩展激活失败: ' + error.message);
     }
 }
 
