@@ -1,0 +1,125 @@
+const axios = require('axios');
+const fs = require('fs');
+const path = require('path');
+
+class MinimaxAPI {
+  constructor() {
+    this.token = null;
+    this.groupId = null;
+    this.configPath = path.join(process.env.HOME || process.env.USERPROFILE, '.minimax-config.json');
+    this.loadConfig();
+  }
+
+  loadConfig() {
+    try {
+      // 只从独立的 config 文件读取
+      if (fs.existsSync(this.configPath)) {
+        const config = JSON.parse(fs.readFileSync(this.configPath, 'utf8'));
+        this.token = config.token;
+        this.groupId = config.groupId;
+      }
+    } catch (error) {
+      console.error('Failed to load config:', error.message);
+    }
+  }
+
+  saveConfig() {
+    try {
+      // 保存到独立的 config 文件
+      const config = {
+        token: this.token,
+        groupId: this.groupId
+      };
+      fs.writeFileSync(this.configPath, JSON.stringify(config, null, 2));
+    } catch (error) {
+      console.error('Failed to save config:', error.message);
+    }
+  }
+
+  setCredentials(token, groupId) {
+    this.token = token;
+    this.groupId = groupId;
+    this.saveConfig();
+  }
+
+  async getUsageStatus() {
+    if (!this.token || !this.groupId) {
+      throw new Error('Missing credentials. Please run "minimax-status auth <token> <groupId>" first');
+    }
+
+    try {
+      const response = await axios.get(
+        `https://www.minimaxi.com/v1/api/openplatform/coding_plan/remains`,
+        {
+          params: { GroupId: this.groupId },
+          headers: {
+            'Authorization': `Bearer ${this.token}`,
+            'Accept': 'application/json'
+          }
+        }
+      );
+
+      return response.data;
+    } catch (error) {
+      if (error.response?.status === 401) {
+        throw new Error('Invalid token or unauthorized. Please check your credentials.');
+      }
+      throw new Error(`API request failed: ${error.message}`);
+    }
+  }
+
+  parseUsageData(apiData) {
+    if (!apiData.model_remains || apiData.model_remains.length === 0) {
+      throw new Error('No usage data available');
+    }
+
+    const modelData = apiData.model_remains[0];
+    const startTime = new Date(modelData.start_time);
+    const endTime = new Date(modelData.end_time);
+    const now = new Date();
+
+    // Calculate counts
+    // 注意：current_interval_usage_count 实际是剩余次数，不是已用次数
+    const remainingCount = modelData.current_interval_usage_count;
+    const usedCount = modelData.current_interval_total_count - remainingCount;
+
+    // Calculate percentage - 基于已使用次数的百分比
+    const usedPercentage = Math.round((usedCount / modelData.current_interval_total_count) * 100);
+
+    // Calculate remaining time in human-readable format
+    const remainingMs = modelData.remains_time;
+    const hours = Math.floor(remainingMs / (1000 * 60 * 60));
+    const minutes = Math.floor((remainingMs % (1000 * 60 * 60)) / (1000 * 60));
+
+    return {
+      modelName: modelData.model_name,
+      timeWindow: {
+        start: startTime.toLocaleTimeString('zh-CN', {
+          hour: '2-digit',
+          minute: '2-digit',
+          timeZone: 'Asia/Shanghai',
+          hour12: false
+        }),
+        end: endTime.toLocaleTimeString('zh-CN', {
+          hour: '2-digit',
+          minute: '2-digit',
+          timeZone: 'Asia/Shanghai',
+          hour12: false
+        }),
+        timezone: 'UTC+8'
+      },
+      remaining: {
+        hours,
+        minutes,
+        text: hours > 0 ? `${hours} 小时 ${minutes} 分钟后重置` : `${minutes} 分钟后重置`
+      },
+      usage: {
+        used: remainingCount,
+        total: modelData.current_interval_total_count,
+        percentage: usedPercentage
+      }
+    };
+  }
+}
+
+module.exports = MinimaxAPI;

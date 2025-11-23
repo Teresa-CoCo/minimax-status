@@ -1,0 +1,28 @@
+{
+  "name": "minimax-status",
+  "version": "1.0.3",
+  "description": "MiniMax Claude Code 使用状态监控工具",
+  "bin": {
+    "minimax-status": "./cli/index.js",
+    "minimax": "./cli/index.js"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "minimax",
+    "claude",
+    "status",
+    "monitor"
+  ],
+  "author": "Jochen Yang",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.13.2",
+    "boxen": "^8.0.1",
+    "chalk": "^5.6.2",
+    "commander": "^14.0.2",
+    "dayjs": "^1.11.19",
+    "ora": "^9.0.0"
+  }
+}
