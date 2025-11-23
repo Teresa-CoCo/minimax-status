@@ -49,7 +49,8 @@
     "lint": "eslint .",
     "pretest": "npm run lint",
     "test": "node ./test/runTest.js",
-    "package": "vsce package"
+    "package": "vsce package",
+    "install-test": "npm install"
   },
   "devDependencies": {
     "@types/vscode": "^1.74.0",
