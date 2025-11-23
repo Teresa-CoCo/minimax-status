@@ -32,14 +32,13 @@ MiniMax coding-plan 使用状态监控 VS Code 扩展，在底部状态栏实时
 
 安装后，你需要配置 MiniMax 的访问令牌：
 
-1. 按 `Ctrl+,` 打开设置
-2. 搜索 "MiniMax Status"
-3. 填写以下配置：
+1. 使用命令 "MiniMax Status: 配置向导" 打开设置界面
+2. 或点击状态栏的"需要配置"按钮
 
 #### 必需配置
 
-- **MiniMax Token**: 你的 API 访问令牌（以 `sk-` 开头）
-- **MiniMax GroupId**: 你的组 ID
+- **MiniMax API Key**: 你的 API 访问令牌
+- **MiniMax GroupID**: 你的组 ID
 
 #### 可选配置
 
@@ -48,24 +47,24 @@ MiniMax coding-plan 使用状态监控 VS Code 扩展，在底部状态栏实时
 
 ### 2. 获取认证信息
 
-#### 获取 Token
+#### 获取 API Key
 
 1. 访问 [MiniMax 开放平台](https://platform.minimaxi.com/user-center/payment/coding-plan)
 2. 登录你的账户
 3. 进入 "Coding Plan" 页面
-4. 创建或获取 API Key（以 `sk-` 开头）
+4. 创建或获取 API Key
 
-#### 获取 GroupId
+#### 获取 GroupID
 
 1. 在用户中心或账户信息页面
-2. 复制你的 **GroupId**
+2. 复制你的 **GroupID**
 
 ### 3. 查看状态栏
 
 配置完成后，VS Code 底部状态栏将显示：
 
 ```
-📁 my-project | 🤖 MiniMax-M2 | 40% | ↻ 2690/4500 | 200K | ⏱️ 35m ✓
+⏰ MiniMax-M2 8%
 ```
 
 ### 4. 鼠标悬停查看详情

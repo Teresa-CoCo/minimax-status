@@ -1,0 +1,10 @@
+.vscode/**
+.vscode-test/**
+**/*.map
+**/*.vsix
+node_modules
+test/**
+.gitignore
+.eslintrc.json
+.npmrc
+.vsce ignore

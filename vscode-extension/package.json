@@ -15,6 +15,20 @@
   ],
   "main": "./extension.js",
   "contributes": {
+    "commands": [
+      {
+        "command": "minimaxStatus.setup",
+        "title": "MiniMax Status: 配置向导",
+        "category": "MiniMax",
+        "description": "配置 MiniMax 访问令牌和组 ID"
+      },
+      {
+        "command": "minimaxStatus.refresh",
+        "title": "MiniMax Status: 刷新状态",
+        "category": "MiniMax",
+        "description": "手动刷新 MiniMax 状态"
+      }
+    ],
     "configuration": {
       "title": "MiniMax Status",
       "properties": {

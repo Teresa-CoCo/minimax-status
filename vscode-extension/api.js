@@ -50,10 +50,10 @@ class MinimaxAPI {
     const startTime = new Date(modelData.start_time);
     const endTime = new Date(modelData.end_time);
 
-    // Calculate used percentage
-    const totalTime = modelData.end_time - modelData.start_time;
-    const usedTime = totalTime - modelData.remains_time;
-    const usedPercentage = Math.round((usedTime / totalTime) * 100);
+    // Calculate used percentage based on usage count
+    const used = modelData.current_interval_total_count - modelData.current_interval_usage_count;
+    const total = modelData.current_interval_total_count;
+    const usedPercentage = Math.round((used / total) * 100);
 
     // Calculate remaining time
     const remainingMs = modelData.remains_time;
