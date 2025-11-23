@@ -1,116 +1,135 @@
-const vscode = require('vscode');
-const MinimaxAPI = require('./api');
+const vscode = require("vscode");
+const MinimaxAPI = require("./api");
 
 // Activate function - entry point for the extension
 function activate(context) {
-    console.log('MiniMax Status 扩展已激活');
+  try {
+    const api = new MinimaxAPI(context);
 
-    try {
-        const api = new MinimaxAPI(context);
-        console.log('MiniMax API 初始化成功，token:', api.token ? '已配置' : '未配置');
+    const statusBarItem = vscode.window.createStatusBarItem(
+      vscode.StatusBarAlignment.Right,
+      100
+    );
+    statusBarItem.command = "minimaxStatus.refresh";
+    statusBarItem.show();
 
-        const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
-        statusBarItem.command = 'minimaxStatus.refresh';
-        statusBarItem.show();
+    let intervalId;
 
-        let intervalId;
+    const updateStatus = async () => {
+      try {
+        const apiData = await api.getUsageStatus();
+        const usageData = api.parseUsageData(apiData);
+        updateStatusBar(statusBarItem, usageData);
+      } catch (error) {
+        console.error("获取状态失败:", error.message);
+        statusBarItem.text = "$(warning) MiniMax";
+        statusBarItem.tooltip = `错误: ${error.message}\n点击配置`;
+        statusBarItem.color = new vscode.ThemeColor("errorForeground");
+      }
+    };
 
-        const updateStatus = async () => {
-            try {
-                const apiData = await api.getUsageStatus();
-                const usageData = api.parseUsageData(apiData);
-                updateStatusBar(statusBarItem, usageData);
-            } catch (error) {
-                console.error('获取状态失败:', error.message);
-                statusBarItem.text = '$(warning) MiniMax';
-                statusBarItem.tooltip = `错误: ${error.message}\n点击配置`;
-                statusBarItem.color = new vscode.ThemeColor('errorForeground');
-            }
-        };
+    const config = vscode.workspace.getConfiguration("minimaxStatus");
+    const interval = config.get("refreshInterval", 30) * 1000;
 
-        const config = vscode.workspace.getConfiguration('minimaxStatus');
-        const interval = config.get('refreshInterval', 30) * 1000;
+    // Initial update
+    updateStatus();
 
-        // Initial update
-        updateStatus();
+    // Set up interval
+    intervalId = setInterval(updateStatus, interval);
 
-        // Set up interval
-        intervalId = setInterval(updateStatus, interval);
-
-        // Subscribe to configuration changes
-        const configChangeDisposable = vscode.workspace.onDidChangeConfiguration((e) => {
-            if (e.affectsConfiguration('minimaxStatus')) {
-                api.refreshConfig();
-                const newInterval = config.get('refreshInterval', 30) * 1000;
-                clearInterval(intervalId);
-                intervalId = setInterval(updateStatus, newInterval);
-                updateStatus();
-            }
-        });
-
-        // Subscribe to refresh command
-        const refreshDisposable = vscode.commands.registerCommand('minimaxStatus.refresh', updateStatus);
-
-        // Subscribe to setup command
-        const setupDisposable = vscode.commands.registerCommand('minimaxStatus.setup', async () => {
-            const panel = showSettingsWebView(context, api, updateStatus);
-            context.subscriptions.push(panel);
-        });
-
-        // Add to subscriptions
-        context.subscriptions.push(
-            statusBarItem,
-            configChangeDisposable,
-            refreshDisposable,
-            setupDisposable
-        );
-
-        // Show setup message if credentials are missing
-        if (!api.token || !api.groupId) {
-            statusBarItem.text = '⚙️ MiniMax: 需要配置';
-            statusBarItem.color = new vscode.ThemeColor('warningForeground');
-            statusBarItem.tooltip = 'MiniMax Status 需要配置 Token 和 GroupId\n点击立即配置';
-            statusBarItem.command = 'minimaxStatus.setup';
-
-            setTimeout(() => {
-                vscode.window.showInformationMessage(
-                    '🎉 欢迎使用 MiniMax Status！\n\n需要配置您的访问令牌和组 ID 才能开始使用。',
-                    '立即配置',
-                    '稍后设置'
-                ).then((selection) => {
-                    if (selection === '立即配置') {
-                        vscode.commands.executeCommand('minimaxStatus.setup');
-                    }
-                });
-            }, 2000);
+    // Subscribe to configuration changes
+    const configChangeDisposable = vscode.workspace.onDidChangeConfiguration(
+      (e) => {
+        if (e.affectsConfiguration("minimaxStatus")) {
+          api.refreshConfig();
+          const newInterval = config.get("refreshInterval", 30) * 1000;
+          clearInterval(intervalId);
+          intervalId = setInterval(updateStatus, newInterval);
+          updateStatus();
         }
-    } catch (error) {
-        console.error('扩展激活失败:', error);
-        vscode.window.showErrorMessage('MiniMax Status 扩展激活失败: ' + error.message);
+      }
+    );
+
+    // Subscribe to refresh command
+    const refreshDisposable = vscode.commands.registerCommand(
+      "minimaxStatus.refresh",
+      updateStatus
+    );
+
+    // Subscribe to setup command
+    const setupDisposable = vscode.commands.registerCommand(
+      "minimaxStatus.setup",
+      async () => {
+        const panel = showSettingsWebView(context, api, updateStatus);
+        context.subscriptions.push(panel);
+      }
+    );
+
+    // Add to subscriptions
+    context.subscriptions.push(
+      statusBarItem,
+      configChangeDisposable,
+      refreshDisposable,
+      setupDisposable
+    );
+
+    // Always show status bar item
+    if (!api.token || !api.groupId) {
+      statusBarItem.text = "⚙️ MiniMax: 需要配置";
+      statusBarItem.color = new vscode.ThemeColor("warningForeground");
+      statusBarItem.tooltip =
+        "MiniMax Status 需要配置 Token 和 GroupId\n点击立即配置";
+      statusBarItem.command = "minimaxStatus.setup";
+
+      setTimeout(() => {
+        vscode.window
+          .showInformationMessage(
+            "🎉 欢迎使用 MiniMax Status！\n\n需要配置您的访问令牌和group ID 才能开始使用。",
+            "立即配置",
+            "稍后设置"
+          )
+          .then((selection) => {
+            if (selection === "立即配置") {
+              vscode.commands.executeCommand("minimaxStatus.setup");
+            }
+          });
+      }, 2000);
+    } else {
+      // If configured but no data yet, show waiting message
+      statusBarItem.text = "⏳ MiniMax: 加载中...";
+      statusBarItem.color = new vscode.ThemeColor("statusBar.foreground");
+      statusBarItem.tooltip = "MiniMax Status\n正在获取状态...";
+      statusBarItem.command = "minimaxStatus.refresh";
     }
+  } catch (error) {
+    console.error("MiniMax Status 扩展激活失败:", error.message);
+    vscode.window.showErrorMessage(
+      "MiniMax Status 扩展激活失败: " + error.message
+    );
+  }
 }
 
 // Create settings webview
 function showSettingsWebView(context, api, updateStatus) {
-    const panel = vscode.window.createWebviewPanel(
-        'minimaxSettings',
-        'MiniMax Status 设置',
-        vscode.ViewColumn.One,
-        {
-            enableScripts: true,
-            retainContextWhenHidden: true
-        }
-    );
+  const panel = vscode.window.createWebviewPanel(
+    "minimaxSettings",
+    "MiniMax Status 设置",
+    vscode.ViewColumn.One,
+    {
+      enableScripts: true,
+      retainContextWhenHidden: true,
+    }
+  );
 
-    // Get current configuration
-    const config = vscode.workspace.getConfiguration('minimaxStatus');
-    const currentToken = config.get('token') || '';
-    const currentGroupId = config.get('groupId') || '';
-    const currentInterval = config.get('refreshInterval') || 30;
-    const currentShowTooltip = config.get('showTooltip') ?? true;
+  // Get current configuration
+  const config = vscode.workspace.getConfiguration("minimaxStatus");
+  const currentToken = config.get("token") || "";
+  const currentGroupId = config.get("groupId") || "";
+  const currentInterval = config.get("refreshInterval") || 30;
+  const currentShowTooltip = config.get("showTooltip") ?? true;
 
-    // Create HTML content
-    panel.webview.html = `
+  // Create HTML content
+  panel.webview.html = `
     <!DOCTYPE html>
     <html lang="zh-CN">
     <head>
@@ -212,7 +231,9 @@ function showSettingsWebView(context, api, updateStatus) {
 
             <div class="form-group">
                 <label class="checkbox-group">
-                    <input type="checkbox" id="showTooltip" ${currentShowTooltip ? 'checked' : ''}>
+                    <input type="checkbox" id="showTooltip" ${
+                      currentShowTooltip ? "checked" : ""
+                    }>
                     <span>显示详细提示信息</span>
                 </label>
             </div>
@@ -294,75 +315,93 @@ function showSettingsWebView(context, api, updateStatus) {
     </html>
     `;
 
-    // Handle messages from webview
-    panel.webview.onDidReceiveMessage(
-        message => {
-            switch (message.command) {
-                case 'saveSettings':
-                    // Update VSCode settings
-                    const config = vscode.workspace.getConfiguration('minimaxStatus');
+  // Handle messages from webview
+  panel.webview.onDidReceiveMessage(
+    (message) => {
+      switch (message.command) {
+        case "saveSettings":
+          // Update VSCode settings
+          const config = vscode.workspace.getConfiguration("minimaxStatus");
 
-                    config.update('token', message.token, vscode.ConfigurationTarget.Global);
-                    config.update('groupId', message.groupId, vscode.ConfigurationTarget.Global);
-                    config.update('refreshInterval', message.interval, vscode.ConfigurationTarget.Global);
-                    config.update('showTooltip', message.showTooltip, vscode.ConfigurationTarget.Global);
+          config.update(
+            "token",
+            message.token,
+            vscode.ConfigurationTarget.Global
+          );
+          config.update(
+            "groupId",
+            message.groupId,
+            vscode.ConfigurationTarget.Global
+          );
+          config.update(
+            "refreshInterval",
+            message.interval,
+            vscode.ConfigurationTarget.Global
+          );
+          config.update(
+            "showTooltip",
+            message.showTooltip,
+            vscode.ConfigurationTarget.Global
+          );
 
-                    panel.dispose();
+          panel.dispose();
 
-                    // Refresh status
-                    updateStatus();
+          // Refresh status
+          updateStatus();
 
-                    vscode.window.showInformationMessage('✅ 配置保存成功！');
-                    break;
+          vscode.window.showInformationMessage("✅ 配置保存成功！");
+          break;
 
-                case 'cancelSettings':
-                    panel.dispose();
-                    break;
-            }
-        },
-        undefined,
-        context.subscriptions
-    );
+        case "cancelSettings":
+          panel.dispose();
+          break;
+      }
+    },
+    undefined,
+    context.subscriptions
+  );
 
-    return panel;
+  return panel;
 }
 
 function updateStatusBar(statusBarItem, data) {
-    const { usage, modelName, remaining } = data;
+  const { usage, modelName, remaining } = data;
 
-    // 关键修复：设置状态栏命令为刷新
-    statusBarItem.command = 'minimaxStatus.refresh';
+  // 关键修复：设置状态栏命令为刷新
+  statusBarItem.command = "minimaxStatus.refresh";
 
-    // Set status bar text with color
-    const percentage = usage.percentage;
-    if (percentage < 60) {
-        statusBarItem.color = new vscode.ThemeColor('statusBar.foreground');
-    } else if (percentage < 85) {
-        statusBarItem.color = new vscode.ThemeColor('problemsWarningIcon.foreground');
-    } else {
-        statusBarItem.color = new vscode.ThemeColor('errorForeground');
-    }
+  // Set status bar text with color
+  const percentage = usage.percentage;
+  if (percentage < 60) {
+    statusBarItem.color = new vscode.ThemeColor("statusBar.foreground");
+  } else if (percentage < 85) {
+    statusBarItem.color = new vscode.ThemeColor(
+      "problemsWarningIcon.foreground"
+    );
+  } else {
+    statusBarItem.color = new vscode.ThemeColor("errorForeground");
+  }
 
-    statusBarItem.text = `$(clock) ${modelName} ${percentage}%`;
+  statusBarItem.text = `$(clock) ${modelName} ${percentage}%`;
 
-    // Build tooltip
-    const tooltip = [
-        `模型: ${modelName}`,
-        `使用进度: ${usage.percentage}% (${usage.used}/${usage.total})`,
-        `剩余时间: ${remaining.text}`,
-        `时间窗口: ${data.timeWindow.start}-${data.timeWindow.end}(${data.timeWindow.timezone})`,
-        '',
-        '点击刷新状态'
-    ].join('\n');
+  // Build tooltip
+  const tooltip = [
+    `模型: ${modelName}`,
+    `使用进度: ${usage.percentage}% (${usage.used}/${usage.total})`,
+    `剩余时间: ${remaining.text}`,
+    `时间窗口: ${data.timeWindow.start}-${data.timeWindow.end}(${data.timeWindow.timezone})`,
+    "",
+    "点击刷新状态",
+  ].join("\n");
 
-    statusBarItem.tooltip = tooltip;
+  statusBarItem.tooltip = tooltip;
 }
 
 function deactivate() {
-    console.log('MiniMax Status 扩展已停用');
+  // Extension deactivated
 }
 
 module.exports = {
-    activate,
-    deactivate
+  activate,
+  deactivate,
 };
