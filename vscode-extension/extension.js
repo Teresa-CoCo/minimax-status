@@ -373,10 +373,10 @@ function updateStatusBar(statusBarItem, data) {
   // Set status bar text with color
   const percentage = usage.percentage;
   if (percentage < 60) {
-    statusBarItem.color = new vscode.ThemeColor("statusBar.foreground");
+    statusBarItem.color = new vscode.ThemeColor("charts.green");
   } else if (percentage < 85) {
     statusBarItem.color = new vscode.ThemeColor(
-      "problemsWarningIcon.foreground"
+      "charts.yellow"
     );
   } else {
     statusBarItem.color = new vscode.ThemeColor("errorForeground");
