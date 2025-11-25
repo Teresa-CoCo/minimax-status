@@ -44,6 +44,40 @@ jobs:
         echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
         echo "Version: $VERSION"
 
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: vscode-v${{ steps.version.outputs.VERSION }}
+        release_name: VSCode Extension v${{ steps.version.outputs.VERSION }}
+        body: |
+          ## Release v${{ steps.version.outputs.VERSION }}
+
+          ### Changes
+          - Fix UI inconsistency in settings webview
+          - Remove emoji icon from page title
+          - Unify field naming: "Group ID" → "groupID"
+
+          ### Installation
+          - Download the VSIX file below
+          - In VSCode: Extensions → ⋯ → Install from VSIX
+          - Or install from VSCode Marketplace: [minimax-status](https://marketplace.visualstudio.com/items?itemName=JochenYang.minimax-status-vscode)
+
+        draft: false
+        prerelease: false
+
+    - name: Upload VSIX to Release
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./vscode-extension/minimax-status-vscode-${{ steps.version.outputs.VERSION }}.vsix
+        asset_name: minimax-status-vscode-${{ steps.version.outputs.VERSION }}.vsix
+        asset_content_type: application/octet-stream
+
     - name: Upload VSIX artifact
       uses: actions/upload-artifact@v4
       with:
@@ -53,6 +87,6 @@ jobs:
 
     - name: Display download info
       run: |
-        echo "VSIX file built successfully!"
-        echo "Download from Actions tab or artifact:"
-        echo "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        echo "VSIX file built and released successfully!"
+        echo "Release URL: ${{ steps.create_release.outputs.html_url }}"
+        echo "Download from: ${{ steps.create_release.outputs.html_url }}"
