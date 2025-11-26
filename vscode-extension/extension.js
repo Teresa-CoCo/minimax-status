@@ -78,7 +78,7 @@ function activate(context) {
 
     // Always show status bar item
     if (!api.token || !api.groupId) {
-      statusBarItem.text = "⚙️ MiniMax: 需要配置";
+      statusBarItem.text = "MiniMax: 需要配置";
       statusBarItem.color = new vscode.ThemeColor("warningForeground");
       statusBarItem.tooltip =
         "MiniMax Status 需要配置 Token 和 GroupId\n点击立即配置";
@@ -87,7 +87,7 @@ function activate(context) {
       setTimeout(() => {
         vscode.window
           .showInformationMessage(
-            "🎉 欢迎使用 MiniMax Status！\n\n需要配置您的访问令牌和group ID 才能开始使用。",
+            "欢迎使用 MiniMax Status！\n\n需要配置您的访问令牌和group ID 才能开始使用。",
             "立即配置",
             "稍后设置"
           )
@@ -352,7 +352,7 @@ function showSettingsWebView(context, api, updateStatus) {
           // Refresh status
           updateStatus();
 
-          vscode.window.showInformationMessage("✅ 配置保存成功！");
+          vscode.window.showInformationMessage("配置保存成功！");
           break;
 
         case "cancelSettings":
