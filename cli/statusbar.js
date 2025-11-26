@@ -125,7 +125,7 @@ class TerminalStatusBar {
   }
 }
 
-// 如果直接运行此文件
+// 直接运行此文件时
 if (require.main === module) {
   const statusBar = new TerminalStatusBar();
   statusBar.start().catch(error => {

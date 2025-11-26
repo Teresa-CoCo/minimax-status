@@ -1,9 +1,7 @@
-#!/usr/bin/env node
-
-const MinimaxAPI = require('./api');
-const chalk = require('chalk').default;
-const fs = require('fs');
-const path = require('path');
+const MinimaxAPI = require("./api");
+const chalk = require("chalk").default;
+const fs = require("fs");
+const path = require("path");
 
 class PromptStatus {
   constructor() {
@@ -11,24 +9,39 @@ class PromptStatus {
   }
 
   async loadSettings() {
-    // Try to load from settings.json in various locations
+    // 尝试从各种位置加载 settings.json
     const possiblePaths = [
-      path.join(process.env.HOME || process.env.USERPROFILE, '.claude', 'settings.json'),
-      path.join(process.env.HOME || process.env.USERPROFILE, '.config', 'claude', 'settings.json'),
-      path.join(process.cwd(), '.claude-settings.json'),
-      path.join(process.cwd(), '.claude', 'settings.json'),
+      path.join(
+        process.env.HOME || process.env.USERPROFILE,
+        ".claude",
+        "settings.json"
+      ),
+      path.join(
+        process.env.HOME || process.env.USERPROFILE,
+        ".config",
+        "claude",
+        "settings.json"
+      ),
+      path.join(process.cwd(), ".claude-settings.json"),
+      path.join(process.cwd(), ".claude", "settings.json"),
     ];
 
     for (const configPath of possiblePaths) {
       if (fs.existsSync(configPath)) {
         try {
-          const settings = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+          const settings = JSON.parse(fs.readFileSync(configPath, "utf8"));
           if (settings.minimaxToken && settings.minimaxGroupId) {
-            this.api.setCredentials(settings.minimaxToken, settings.minimaxGroupId);
+            this.api.setCredentials(
+              settings.minimaxToken,
+              settings.minimaxGroupId
+            );
             return settings.minimaxStatus || {};
           }
         } catch (error) {
-          console.error(`Failed to read settings from ${configPath}:`, error.message);
+          console.error(
+            `Failed to read settings from ${configPath}:`,
+            error.message
+          );
         }
       }
     }
@@ -36,15 +49,18 @@ class PromptStatus {
     return {};
   }
 
-  async getPromptStatus(mode = 'compact') {
+  async getPromptStatus(mode = "compact") {
     try {
       await this.loadSettings();
-      const apiData = await this.api.getUsageStatus();
-      const usageData = this.api.parseUsageData(apiData);
+      const [apiData, subscriptionData] = await Promise.all([
+        this.api.getUsageStatus(),
+        this.api.getSubscriptionDetails(),
+      ]);
+      const usageData = this.api.parseUsageData(apiData, subscriptionData);
 
-      if (mode === 'compact') {
+      if (mode === "compact") {
         return this.renderCompact(usageData);
-      } else if (mode === 'minimal') {
+      } else if (mode === "minimal") {
         return this.renderMinimal(usageData);
       }
       return null;
@@ -68,7 +84,7 @@ class PromptStatus {
   }
 
   renderCompact(data) {
-    const { usage, remaining, modelName } = data;
+    const { usage, remaining, modelName, expiry } = data;
     const percentage = usage.percentage;
 
     let color = chalk.green;
@@ -78,19 +94,25 @@ class PromptStatus {
       color = chalk.yellow;
     }
 
-    const status = percentage >= 85 ? '⚠' : percentage >= 60 ? '⚡' : '✓';
-    const remainingText = remaining.hours > 0
-      ? `${remaining.hours}h${remaining.minutes}m`
-      : `${remaining.minutes}m`;
+    const status = percentage >= 85 ? "⚠" : percentage >= 60 ? "⚡" : "✓";
+    const remainingText =
+      remaining.hours > 0
+        ? `${remaining.hours}h${remaining.minutes}m`
+        : `${remaining.minutes}m`;
 
-    return `${color('●')} ${modelName} ${color(percentage + '%')} ${remainingText} ${status}`;
+    // 添加到期信息（如果可用）
+    const expiryInfo = expiry ? ` ${chalk.gray('•')} 剩余: ${expiry.daysRemaining}天` : '';
+
+    return `${color("●")} ${modelName} ${color(
+      percentage + "%"
+    )} ${remainingText} ${status}${expiryInfo}`;
   }
 }
 
-// CLI usage
+// CLI 使用
 async function main() {
   const args = process.argv.slice(2);
-  const mode = args.includes('--minimal') ? 'minimal' : 'compact';
+  const mode = args.includes("--minimal") ? "minimal" : "compact";
 
   const prompt = new PromptStatus();
   const output = await prompt.getPromptStatus(mode);
@@ -98,13 +120,13 @@ async function main() {
   if (output) {
     console.log(output);
   } else {
-    // Silent mode - no output if not configured
+    // 静默模式 - 未配置时不输出
   }
 }
 
 if (require.main === module) {
-  main().catch(error => {
-    // Silent fail for prompt integration
+  main().catch((error) => {
+    // 静默失败，用于提示集成
     process.exit(0);
   });
 }

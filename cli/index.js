@@ -1,5 +1,3 @@
-#!/usr/bin/env node
-
 const { Command } = require("commander");
 const chalk = require("chalk").default;
 const ora = require("ora").default;
@@ -15,7 +13,7 @@ program
   .description("MiniMax Claude Code 使用状态监控工具")
   .version(packageJson.version);
 
-// Auth command
+// Auth command (设置认证凭据)
 program
   .command("auth")
   .description("设置认证凭据")
@@ -26,7 +24,7 @@ program
     console.log(chalk.green("✓ 认证信息已保存"));
   });
 
-// Health check command
+// Health check command (检查配置和连接状态)
 program
   .command("health")
   .description("检查配置和连接状态")
@@ -36,16 +34,16 @@ program
       config: false,
       token: false,
       groupId: false,
-      api: false
+      api: false,
     };
 
     // 检查配置文件
     try {
-      const configPath = require('path').join(
+      const configPath = require("path").join(
         process.env.HOME || process.env.USERPROFILE,
-        '.minimax-config.json'
+        ".minimax-config.json"
       );
-      if (require('fs').existsSync(configPath)) {
+      if (require("fs").existsSync(configPath)) {
         checks.config = true;
       }
       spinner.succeed("配置文件检查");
@@ -82,7 +80,7 @@ program
 
     // 总结
     console.log("\n" + chalk.bold("健康检查结果:"));
-    const allPassed = Object.values(checks).every(v => v);
+    const allPassed = Object.values(checks).every((v) => v);
     if (allPassed) {
       console.log(chalk.green("✓ 所有检查通过，配置正常！"));
     } else {
@@ -90,7 +88,7 @@ program
     }
   });
 
-// Status command
+// Status command (显示当前使用状态)
 program
   .command("status")
   .description("显示当前使用状态")
@@ -100,8 +98,11 @@ program
     const spinner = ora("获取使用状态中...").start();
 
     try {
-      const apiData = await api.getUsageStatus();
-      const usageData = api.parseUsageData(apiData);
+      const [apiData, subscriptionData] = await Promise.all([
+        api.getUsageStatus(),
+        api.getSubscriptionDetails(),
+      ]);
+      const usageData = api.parseUsageData(apiData, subscriptionData);
       const statusBar = new StatusBar(usageData);
 
       spinner.succeed("状态获取成功");
@@ -123,7 +124,7 @@ program
     }
   });
 
-// List command
+// List command (显示所有模型的使用状态)
 program
   .command("list")
   .description("显示所有模型的使用状态")
@@ -131,8 +132,11 @@ program
     const spinner = ora("获取使用状态中...").start();
 
     try {
-      const apiData = await api.getUsageStatus();
-      const usageData = api.parseUsageData(apiData);
+      const [apiData, subscriptionData] = await Promise.all([
+        api.getUsageStatus(),
+        api.getSubscriptionDetails(),
+      ]);
+      const usageData = api.parseUsageData(apiData, subscriptionData);
       const statusBar = new StatusBar(usageData);
 
       spinner.succeed("状态获取成功");
@@ -144,7 +148,7 @@ program
     }
   });
 
-// StatusBar command - 持续显示在终端底部
+// StatusBar command (持续显示在终端底部)
 program
   .command("bar")
   .description("在终端底部持续显示状态栏（类似 ccline）")
@@ -154,7 +158,7 @@ program
     await statusBar.start();
   });
 
-// 上下文窗口大小映射表（仅MiniMax模型）
+// 模型上下文窗口大小映射表（仅MiniMax模型）
 const MODEL_CONTEXT_SIZES = {
   "minimax-m2": 200000,
   "minimax-m2-stable": 200000,
@@ -164,12 +168,12 @@ const MODEL_CONTEXT_SIZES = {
 
 // 解析转录文件，借鉴ccline的实现
 async function parseTranscriptUsage(transcriptPath) {
-  const fs = require('fs').promises;
-  const path = require('path');
+  const fs = require("fs").promises;
+  const path = require("path");
 
   try {
-    const fileContent = await fs.readFile(transcriptPath, 'utf8');
-    const lines = fileContent.trim().split('\n');
+    const fileContent = await fs.readFile(transcriptPath, "utf8");
+    const lines = fileContent.trim().split("\n");
 
     if (lines.length === 0) {
       return null;
@@ -180,7 +184,7 @@ async function parseTranscriptUsage(transcriptPath) {
     const lastEntry = JSON.parse(lastLine);
 
     // 如果是summary类型，查找usage
-    if (lastEntry.type === 'summary' && lastEntry.leafUuid) {
+    if (lastEntry.type === "summary" && lastEntry.leafUuid) {
       // 在所有行中查找对应的leafUuid
       for (let i = lines.length - 2; i >= 0; i--) {
         const entry = JSON.parse(lines[i].trim());
@@ -199,7 +203,7 @@ async function parseTranscriptUsage(transcriptPath) {
       if (!line) continue;
 
       const entry = JSON.parse(line);
-      if (entry.type === 'assistant' && entry.message) {
+      if (entry.type === "assistant" && entry.message) {
         if (entry.message.usage) {
           return calculateUsageTokens(entry.message.usage);
         }
@@ -221,8 +225,15 @@ function calculateUsageTokens(usage) {
     return usage.input_tokens + usage.output_tokens;
   } else if (usage.context_tokens) {
     return usage.context_tokens;
-  } else if (usage.cache_creation_input_tokens && usage.cache_read_input_tokens) {
-    return usage.input_tokens + usage.cache_creation_input_tokens + usage.cache_read_input_tokens;
+  } else if (
+    usage.cache_creation_input_tokens &&
+    usage.cache_read_input_tokens
+  ) {
+    return (
+      usage.input_tokens +
+      usage.cache_creation_input_tokens +
+      usage.cache_read_input_tokens
+    );
   }
   return 0;
 }
@@ -272,11 +283,14 @@ program
 
     try {
       // 获取使用状态
-      const apiData = await api.getUsageStatus();
-      const usageData = api.parseUsageData(apiData);
+      const [apiData, subscriptionData] = await Promise.all([
+        api.getUsageStatus(),
+        api.getSubscriptionDetails(),
+      ]);
+      const usageData = api.parseUsageData(apiData, subscriptionData);
 
       // 构建状态信息
-      const { usage, modelName, remaining } = usageData;
+      const { usage, modelName, remaining, expiry } = usageData;
       const percentage = usage.percentage;
 
       // 从stdin数据获取Claude Code信息
@@ -297,11 +311,11 @@ program
 
         // 当前工作目录（从stdin获取）
         if (stdinData.workspace && stdinData.workspace.current_directory) {
-          currentDir = stdinData.workspace.current_directory.split('/').pop();
+          currentDir = stdinData.workspace.current_directory.split("/").pop();
         }
       } else {
         // 如果没有stdin，使用API返回的模型名作为ID
-        modelId = modelName.toLowerCase().replace(/\s+/g, '-');
+        modelId = modelName.toLowerCase().replace(/\s+/g, "-");
       }
 
       // 查找上下文窗口大小
@@ -319,9 +333,13 @@ program
       let contextUsageTokens = null;
       let contextUsagePercentage = null;
       if (stdinData && stdinData.transcript_path) {
-        contextUsageTokens = await parseTranscriptUsage(stdinData.transcript_path);
+        contextUsageTokens = await parseTranscriptUsage(
+          stdinData.transcript_path
+        );
         if (contextUsageTokens) {
-          contextUsagePercentage = Math.round((contextUsageTokens / contextSize) * 100);
+          contextUsagePercentage = Math.round(
+            (contextUsageTokens / contextSize) * 100
+          );
         }
       }
 
@@ -329,7 +347,8 @@ program
 
       // 状态图标（基于真实上下文使用情况，否则基于额度）
       const displayPercentage = contextUsagePercentage || percentage;
-      const statusIcon = displayPercentage >= 85 ? "⚠" : displayPercentage >= 60 ? "⚡" : "✓";
+      const statusIcon =
+        displayPercentage >= 85 ? "⚠" : displayPercentage >= 60 ? "⚡" : "✓";
 
       // 剩余时间文本
       const remainingText =
@@ -338,35 +357,56 @@ program
           : `${remaining.minutes}m`;
 
       // 构建带图标的状态行
-      let statusLine = '';
+      let statusLine = "";
 
       // 显示目录（优先使用Claude Code的目录，否则显示CLI当前目录）
-      const displayDir = currentDir || cliCurrentDir || '';
+      const displayDir = currentDir || cliCurrentDir || "";
       if (displayDir) {
-        statusLine += `${chalk.blue('📁')} ${chalk.cyan(displayDir)} | `;
+        statusLine += `${chalk.blue("📁")} ${chalk.cyan(displayDir)} | `;
       }
 
       // 模型信息
-      statusLine += `${chalk.magenta('🤖')} ${chalk.magenta(displayModel)} | `;
+      statusLine += `${chalk.magenta("🤖")} ${chalk.magenta(displayModel)} | `;
 
       // 账户使用额度百分比（根据使用率变色）
-      const usageColor = percentage >= 85 ? chalk.red : percentage >= 60 ? chalk.yellow : chalk.green;
-      statusLine += `${usageColor(percentage + '%')} | `;
+      const usageColor =
+        percentage >= 85
+          ? chalk.red
+          : percentage >= 60
+          ? chalk.yellow
+          : chalk.green;
+      statusLine += `${usageColor(percentage + "%")} | `;
 
       // 剩余次数
-      statusLine += `${chalk.yellow('↻')} ${chalk.white(usage.remaining + '/' + usage.total)} | `;
+      statusLine += `${chalk.yellow("↻")} ${chalk.white(
+        usage.remaining + "/" + usage.total
+      )} | `;
 
       // 上下文使用情况（参考ccline：⚡ 百分比 · token数/总大小）
       if (contextUsageTokens) {
-        const contextColor = displayPercentage >= 85 ? chalk.red : displayPercentage >= 60 ? chalk.yellow : chalk.green;
-        statusLine += `${contextColor('⚡')} ${contextColor(displayPercentage + '%')} ${chalk.gray('·')} ${chalk.white(formatTokens(contextUsageTokens) + '/' + contextSizeText)} | `;
+        const contextColor =
+          displayPercentage >= 85
+            ? chalk.red
+            : displayPercentage >= 60
+            ? chalk.yellow
+            : chalk.green;
+        statusLine += `${contextColor("⚡")} ${contextColor(
+          displayPercentage + "%"
+        )} ${chalk.gray("·")} ${chalk.white(
+          formatTokens(contextUsageTokens) + "/" + contextSizeText
+        )} | `;
       } else {
         // 没有转录数据时，显示上下文窗口大小
         statusLine += `${chalk.gray(contextSizeText)} | `;
       }
 
       // 剩余时间（去掉状态图标，避免重复显示）
-      statusLine += `${chalk.gray('⏱')} ${chalk.white(remainingText)}`;
+      statusLine += `${chalk.gray("⏱")} ${chalk.white(remainingText)}`;
+
+      // 套餐到期时间（如果可用）
+      if (expiry) {
+        statusLine += ` | ${chalk.gray('剩余:')} ${chalk.white(expiry.daysRemaining + '天')}`;
+      }
 
       // 单次输出后就退出
       console.log(statusLine);
@@ -385,7 +425,7 @@ function startWatching(api, statusBar) {
       const usageData = api.parseUsageData(apiData);
       const newStatusBar = new StatusBar(usageData);
 
-      // Clear previous output
+      // 清除之前的输出
       process.stdout.write("\x1Bc");
 
       console.log("\n" + newStatusBar.render() + "\n");
@@ -395,13 +435,13 @@ function startWatching(api, statusBar) {
     }
   };
 
-  // Initial update
+  // 初始更新
   update();
 
-  // Update every 10 seconds for near real-time updates
+  // 每10秒更新一次，以近实时更新
   intervalId = setInterval(update, 10000);
 
-  // Handle Ctrl+C
+  // 处理Ctrl+C
   process.on("SIGINT", () => {
     clearInterval(intervalId);
     console.log(chalk.yellow("\n监控已停止"));
@@ -409,7 +449,7 @@ function startWatching(api, statusBar) {
   });
 }
 
-// Show help if no command provided
+// 如果没有命令提供帮助
 if (!process.argv.slice(2).length) {
   program.outputHelp();
   process.exit(1);
