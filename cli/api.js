@@ -1,7 +1,17 @@
 const axios = require("axios");
+const https = require("https");
 const fs = require("fs");
 const path = require("path");
 const chalk = require("chalk").default;
+
+// 创建 HTTPS Agent 配置
+const httpsAgent = new https.Agent({
+  keepAlive: true,
+  maxSockets: 5,
+  maxFreeSockets: 2,
+  timeout: 10000,
+  servername: 'minimaxi.com'
+});
 
 class MinimaxAPI {
   constructor() {
@@ -78,6 +88,7 @@ class MinimaxAPI {
             Accept: "application/json",
           },
           timeout: 10000, // 10秒超时
+          httpsAgent, // 添加 HTTPS Agent 配置
         }
       );
 
@@ -120,6 +131,7 @@ class MinimaxAPI {
             Accept: "application/json",
           },
           timeout: 10000,
+          httpsAgent, // 添加 HTTPS Agent 配置
         }
       );
 

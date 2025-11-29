@@ -1,5 +1,15 @@
 const axios = require('axios');
+const https = require('https');
 const vscode = require('vscode');
+
+// 创建 HTTPS Agent 配置
+const httpsAgent = new https.Agent({
+  keepAlive: true,
+  maxSockets: 5,
+  maxFreeSockets: 2,
+  timeout: 10000,
+  servername: 'minimaxi.com'
+});
 
 class MinimaxAPI {
   constructor(context) {
@@ -28,7 +38,8 @@ class MinimaxAPI {
           headers: {
             'Authorization': `Bearer ${this.token}`,
             'Accept': 'application/json'
-          }
+          },
+          httpsAgent: httpsAgent // 添加 HTTPS Agent 配置
         }
       );
 
@@ -59,7 +70,8 @@ class MinimaxAPI {
           headers: {
             'Authorization': `Bearer ${this.token}`,
             'Accept': 'application/json'
-          }
+          },
+          httpsAgent: httpsAgent // 添加 HTTPS Agent 配置
         }
       );
 
