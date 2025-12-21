@@ -63,7 +63,7 @@ function activate(context) {
     const setupDisposable = vscode.commands.registerCommand(
       "minimaxStatus.setup",
       async () => {
-        const panel = showSettingsWebView(context, api, updateStatus);
+        const panel = await showSettingsWebView(context, api, updateStatus);
         context.subscriptions.push(panel);
       }
     );
@@ -113,7 +113,7 @@ function activate(context) {
 }
 
 // Create settings webview
-function showSettingsWebView(context, api, updateStatus) {
+async function showSettingsWebView(context, api, updateStatus) {
   const panel = vscode.window.createWebviewPanel(
     "minimaxSettings",
     "MiniMax Status 设置",
@@ -130,6 +130,25 @@ function showSettingsWebView(context, api, updateStatus) {
   const currentGroupId = config.get("groupId") || "";
   const currentInterval = config.get("refreshInterval") || 30;
   const currentShowTooltip = config.get("showTooltip") ?? true;
+  const currentModelName = config.get("modelName") || "";
+
+  // Fetch available models if token and groupId are configured
+  let availableModels = [];
+  if (currentToken && currentGroupId) {
+    try {
+      const statusData = await api.getUsageStatus();
+      const parsedData = api.parseUsageData(statusData, null);
+      availableModels = parsedData.allModels || [];
+    } catch (error) {
+      // Silently fail, model selector will show default option
+    }
+  }
+
+  // Create model options
+  const modelOptions = availableModels.length > 0
+    ? `<option value="">自动选择第一个模型</option>` +
+      availableModels.map(m => `<option value="${m}" ${m === currentModelName ? 'selected' : ''}>${m}</option>`).join('')
+    : `<option value="">请先配置 API Key 和 groupID</option>`;
 
   // Create HTML content
   panel.webview.html = `
@@ -241,6 +260,14 @@ function showSettingsWebView(context, api, updateStatus) {
                 </label>
             </div>
 
+            <div class="form-group">
+                <label for="modelName">模型选择</label>
+                <select id="modelName" style="width: 100%; padding: 8px 12px; border: 1px solid var(--vscode-input-border, #6c6c6c); border-radius: 4px; background-color: var(--vscode-input-background); color: var(--vscode-input-foreground); font-size: 14px; box-sizing: border-box;">
+                    ${modelOptions}
+                </select>
+                <div class="info-text">选择要在状态栏显示的模型，留空则使用第一个模型</div>
+            </div>
+
             <div style="margin-top: 30px;">
                 <button onclick="saveSettings()">保存配置</button>
                 <button onclick="cancelSettings()" style="background-color: var(--vscode-button-secondaryBackground, #6a737d);">取消</button>
@@ -263,6 +290,7 @@ function showSettingsWebView(context, api, updateStatus) {
                 const groupId = document.getElementById('groupId').value.trim();
                 const interval = parseInt(document.getElementById('interval').value);
                 const showTooltip = document.getElementById('showTooltip').checked;
+                const modelName = document.getElementById('modelName').value;
 
                 // Clear previous errors
                 document.getElementById('token-error').textContent = '';
@@ -296,7 +324,8 @@ function showSettingsWebView(context, api, updateStatus) {
                     token: token,
                     groupId: groupId,
                     interval: interval,
-                    showTooltip: showTooltip
+                    showTooltip: showTooltip,
+                    modelName: modelName
                 });
             }
 
@@ -346,6 +375,13 @@ function showSettingsWebView(context, api, updateStatus) {
             message.showTooltip,
             vscode.ConfigurationTarget.Global
           );
+          if (message.modelName !== undefined) {
+            config.update(
+              "modelName",
+              message.modelName,
+              vscode.ConfigurationTarget.Global
+            );
+          }
 
           panel.dispose();
 
