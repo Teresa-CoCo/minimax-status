@@ -4,7 +4,7 @@
   "description": "在 VS Code 状态栏显示 MiniMax coding-plan 使用状态",
   "version": "1.0.9",
   "publisher": "JochenYang",
-  "icon": "./public/MINIMAX LOGO.png",
+  "icon": "./public/icon.png",
   "engines": {
     "vscode": "^1.75.0"
   },
