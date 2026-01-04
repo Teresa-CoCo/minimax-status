@@ -11,7 +11,7 @@ class ConfigCounter {
   }
 
   countMcpServers(filePath) {
-    if (!fs.existsSync(filePath)) return new Set();
+    if (typeof filePath !== 'string' || !fs.existsSync(filePath)) return new Set();
 
     try {
       const content = fs.readFileSync(filePath, 'utf8');
@@ -37,7 +37,7 @@ class ConfigCounter {
   }
 
   countHooks(filePath) {
-    if (!fs.existsSync(filePath)) return 0;
+    if (typeof filePath !== 'string' || !fs.existsSync(filePath)) return 0;
 
     try {
       const content = fs.readFileSync(filePath, 'utf8');
@@ -52,7 +52,7 @@ class ConfigCounter {
   }
 
   countRulesInDir(rulesDir) {
-    if (!fs.existsSync(rulesDir)) return 0;
+    if (typeof rulesDir !== 'string' || !fs.existsSync(rulesDir)) return 0;
 
     let count = 0;
     try {

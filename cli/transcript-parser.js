@@ -20,7 +20,7 @@ class TranscriptParser {
       contextTokens: 0,
     };
 
-    if (!transcriptPath || !fs.existsSync(transcriptPath)) {
+    if (typeof transcriptPath !== 'string' || !fs.existsSync(transcriptPath)) {
       return result;
     }
 
@@ -142,7 +142,7 @@ class TranscriptParser {
   }
 
   async findLatestUsage(transcriptPath) {
-    if (!transcriptPath || !fs.existsSync(transcriptPath)) {
+    if (typeof transcriptPath !== 'string' || !fs.existsSync(transcriptPath)) {
       return null;
     }
 
