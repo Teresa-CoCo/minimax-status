@@ -80,11 +80,7 @@ class Renderer {
 
     parts.push(`${chalk.magenta('🤖')} ${chalk.magenta(modelName)}`);
 
-    const usageColor = this.getStatusColor(usagePercentage);
-    parts.push(`${usageColor(usagePercentage + '%')}`);
-
-    parts.push(`${chalk.yellow('↻')} ${chalk.white(usage.remaining + '/' + usage.total)}`);
-
+    // 上下文窗口在前
     if (contextUsage) {
       const contextPercent = Math.round((contextUsage / contextSize) * 100);
       const contextColor = this.getStatusColor(contextPercent);
@@ -94,10 +90,14 @@ class Renderer {
       parts.push(`${chalk.gray(this.formatContextSize(contextSize))}`);
     }
 
+    // 使用量合并
+    const usageColor = this.getStatusColor(usagePercentage);
+    parts.push(`${chalk.yellow('↻')} ${usageColor(usagePercentage + '%')}${chalk.yellow('·')}${chalk.white(usage.remaining + '/' + usage.total)}`);
+
     const remainingText = remaining.hours > 0
       ? `${remaining.hours}h${remaining.minutes}m`
       : `${remaining.minutes}m`;
-    parts.push(`${chalk.gray('⏱')} ${chalk.white(remainingText)}`);
+    parts.push(`${chalk.gray('⌛')} ${chalk.white(remainingText)}`);
 
     if (configCounts.claudeMdCount > 0) {
       parts.push(`${chalk.dim(configCounts.claudeMdCount + ' CLAUDE.md')}`);
@@ -108,12 +108,10 @@ class Renderer {
     if (configCounts.mcpCount > 0) {
       parts.push(`${chalk.dim(configCounts.mcpCount + ' MCPs')}`);
     }
-    if (sessionDuration) {
-      parts.push(`${chalk.dim('⏱ 会话 ' + sessionDuration)}`);
-    }
-
+    
     if (expiry) {
-      parts.push(`${chalk.dim('到期: ' + expiry.daysRemaining + '天')}`);
+      const expiryColor = expiry.daysRemaining <= 3 ? chalk.red : expiry.daysRemaining <= 7 ? chalk.yellow : chalk.green;
+      parts.push(`${expiryColor('到期: ' + expiry.daysRemaining + '天')}`);
     }
 
     return parts.join(' | ');
@@ -130,7 +128,7 @@ class Renderer {
 
     for (const tool of runningTools.slice(-2)) {
       const target = tool.target ? this.truncatePath(tool.target) : '';
-      parts.push(`${chalk.yellow('◐')} ${chalk.cyan(tool.name)}${target ? chalk.dim(': ' + target) : ''}`);
+      parts.push(`${chalk.yellow('◐')} ${chalk.cyan(tool.name)}${target ? chalk.cyan(': ' + target) : ''}`);
     }
 
     const toolCounts = new Map();
@@ -144,7 +142,7 @@ class Renderer {
       .slice(0, 4);
 
     for (const [name, count] of sortedTools) {
-      parts.push(`${chalk.green('✓')} ${name} ${chalk.dim('×' + count)}`);
+      parts.push(`${chalk.green('✓')} ${name} ${chalk.green('×' + count)}`);
     }
 
     if (parts.length === 0) {
@@ -199,13 +197,13 @@ class Renderer {
 
     if (!inProgress) {
       if (completed === total && total > 0) {
-        return `${chalk.green('✓')} All todos complete ${chalk.dim('(' + completed + '/' + total + ')')}`;
+        return `${chalk.green('✓')} All todos complete ${chalk.green('(' + completed + '/' + total + ')')}`;
       }
       return null;
     }
 
     const content = this.truncateDesc(inProgress.content, 50);
-    const progress = chalk.dim('(' + completed + '/' + total + ')');
+    const progress = chalk.white('(' + completed + '/' + total + ')');
 
     return `${chalk.yellow('▸')} ${content} ${progress}`;
   }

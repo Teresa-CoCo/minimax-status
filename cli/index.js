@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 
+// Force color output even in non-TTY environments (e.g., Claude Code statusline)
+process.env.FORCE_COLOR = "1";
+
 const { Command } = require("commander");
 const chalk = require("chalk").default;
 const ora = require("ora").default;
@@ -242,14 +245,6 @@ program
         configCounts = await configCounter.count(workspacePath);
       }
 
-      let sessionDuration = null;
-      if (stdinData && stdinData.transcript_path) {
-        const transcript = await transcriptParser.parse(stdinData.transcript_path);
-        if (transcript.sessionStart) {
-          sessionDuration = formatSessionDuration(transcript.sessionStart);
-        }
-      }
-
       const context = {
         modelName: displayModel,
         currentDir: displayDir,
@@ -260,7 +255,6 @@ program
         contextUsage: contextUsageTokens,
         contextSize,
         configCounts,
-        sessionDuration,
         tools: [],
         agents: [],
         todos: [],
@@ -287,20 +281,6 @@ const MODEL_CONTEXT_SIZES = {
   "minimax-m1": 200000,
   "minimax-m1-stable": 200000,
 };
-
-function formatSessionDuration(sessionStart) {
-  if (!sessionStart) return null;
-
-  const ms = Date.now() - sessionStart.getTime();
-  const mins = Math.floor(ms / 60000);
-
-  if (mins < 1) return '<1m';
-  if (mins < 60) return `${mins}m`;
-
-  const hours = Math.floor(mins / 60);
-  const remainingMins = mins % 60;
-  return `${hours}h ${remainingMins}m`;
-}
 
 function startWatching(api, statusBar) {
   let intervalId;
