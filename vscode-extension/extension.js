@@ -14,6 +14,9 @@ function activate(context) {
     statusBarItem.show();
 
     let intervalId;
+    let billingCache = null;
+    let billingCacheTime = 0;
+    const BILLING_CACHE_DURATION = 30000; // 30 seconds cache for billing data
 
     const updateStatus = async () => {
       try {
@@ -22,7 +25,58 @@ function activate(context) {
           api.getSubscriptionDetails().catch(() => null) // Silent fail for subscription API
         ]);
         const usageData = api.parseUsageData(apiData, subscriptionData);
-        updateStatusBar(statusBarItem, usageData);
+
+        // Fetch billing data for usage statistics (with caching)
+        const now = Date.now();
+        if (!billingCache || now - billingCacheTime > BILLING_CACHE_DURATION) {
+          try {
+            const billingRecords = await api.getAllBillingRecords(10); // Fetch first 10 pages (1000 records)
+            billingCache = billingRecords;
+            billingCacheTime = now;
+          } catch (billingError) {
+            console.error("Failed to fetch billing data:", billingError.message);
+            billingCache = [];
+          }
+        }
+
+        // Calculate usage statistics
+        let usageStats = {
+          lastDayUsage: 0,
+          weeklyUsage: 0,
+          planTotalUsage: 0,
+        };
+
+        // 计算套餐开始时间：从订阅到期时间往前推1个月
+        let planStartTime = 0;
+        if (subscriptionData &&
+            subscriptionData.current_subscribe &&
+            subscriptionData.current_subscribe.current_subscribe_end_time) {
+          const expiryDateStr = subscriptionData.current_subscribe.current_subscribe_end_time;
+          // 格式: MM/DD/YYYY -> Date
+          const [month, day, year] = expiryDateStr.split('/').map(Number);
+          const expiryDate = new Date(year, month - 1, day);
+          // 套餐开始时间 = 到期时间 - 1个月
+          planStartTime = new Date(year, month - 2, day).getTime();
+        }
+
+        if (billingCache && billingCache.length > 0) {
+          // 从账单记录中计算时间范围
+          let minTimestamp = Infinity;
+          let maxTimestamp = 0;
+          for (const record of billingCache) {
+            const createdAt = (record.created_at || 0) * 1000;
+            if (createdAt < minTimestamp) minTimestamp = createdAt;
+            if (createdAt > maxTimestamp) maxTimestamp = createdAt;
+          }
+
+          usageStats = api.calculateUsageStats(
+            billingCache,
+            planStartTime > 0 ? planStartTime : minTimestamp, // 使用套餐开始时间
+            now // 到当前时间
+          );
+        }
+
+        updateStatusBar(statusBarItem, usageData, usageStats, api);
       } catch (error) {
         console.error("获取状态失败:", error.message);
         statusBarItem.text = "$(warning) MiniMax";
@@ -403,8 +457,9 @@ async function showSettingsWebView(context, api, updateStatus) {
   return panel;
 }
 
-function updateStatusBar(statusBarItem, data) {
-  const { usage, modelName, remaining, expiry } = data;
+function updateStatusBar(statusBarItem, data, usageStats, api) {
+  const { usage, modelName, remaining, expiry, planTimeWindow } = data;
+  const formatNumber = (num) => api.formatNumber(num);
 
   // 关键修复：设置状态栏命令为刷新
   statusBarItem.command = "minimaxStatus.refresh";
@@ -421,14 +476,20 @@ function updateStatusBar(statusBarItem, data) {
     statusBarItem.color = new vscode.ThemeColor("errorForeground");
   }
 
+  // 状态栏只显示用量百分比，不显示消耗统计
   statusBarItem.text = `$(clock) ${modelName} ${percentage}%`;
 
   // Build tooltip
   const tooltip = [
     `模型: ${modelName}`,
-    `使用进度: ${usage.percentage}% (${usage.used}/${usage.total})`,
+    `使用进度: ${usage.percentage}% (${formatNumber(usage.used)}/${formatNumber(usage.total)})`,
     `剩余时间: ${remaining.text}`,
-    `时间窗口: ${data.timeWindow.start}-${data.timeWindow.end}(${data.timeWindow.timezone})`
+    `时间窗口: ${data.timeWindow.start}-${data.timeWindow.end}(${data.timeWindow.timezone})`,
+    ``,
+    `=== Token 消耗统计 ===`,
+    `昨日消耗: ${formatNumber(usageStats.lastDayUsage)}`,
+    `近7天消耗: ${formatNumber(usageStats.weeklyUsage)}`,
+    `套餐总消耗: ${formatNumber(usageStats.planTotalUsage)}`,
   ];
 
   // Add expiry information if available
