@@ -81,13 +81,13 @@ class Renderer {
     parts.push(`${chalk.magenta('🤖')} ${chalk.magenta(modelName)}`);
 
     // 上下文窗口在前
-    if (contextUsage) {
+    if (contextUsage !== null && contextUsage !== undefined) {
       const contextPercent = Math.round((contextUsage / contextSize) * 100);
       const contextColor = this.getStatusColor(contextPercent);
       parts.push(`${contextColor('⚡')} ${contextColor(contextPercent + '%')}`);
       parts.push(`${chalk.white(this.formatTokens(contextUsage) + '/' + this.formatContextSize(contextSize))}`);
     } else {
-      parts.push(`${chalk.gray(this.formatContextSize(contextSize))}`);
+      parts.push(`${chalk.cyan(this.formatContextSize(contextSize))}`);
     }
 
     // 使用量合并
@@ -97,16 +97,16 @@ class Renderer {
     const remainingText = remaining.hours > 0
       ? `${remaining.hours}h${remaining.minutes}m`
       : `${remaining.minutes}m`;
-    parts.push(`${chalk.gray('⌛')} ${chalk.white(remainingText)}`);
+    parts.push(`${chalk.yellow('⌛')} ${chalk.white(remainingText)}`);
 
     if (configCounts.claudeMdCount > 0) {
-      parts.push(`${chalk.dim(configCounts.claudeMdCount + ' CLAUDE.md')}`);
+      parts.push(`${chalk.white(configCounts.claudeMdCount + ' CLAUDE.md')}`);
     }
     if (configCounts.rulesCount > 0) {
-      parts.push(`${chalk.dim(configCounts.rulesCount + ' rules')}`);
+      parts.push(`${chalk.cyan(configCounts.rulesCount + ' rules')}`);
     }
     if (configCounts.mcpCount > 0) {
-      parts.push(`${chalk.dim(configCounts.mcpCount + ' MCPs')}`);
+      parts.push(`${chalk.yellow(configCounts.mcpCount + ' MCPs')}`);
     }
     
     if (expiry) {
@@ -172,15 +172,15 @@ class Renderer {
     for (const agent of toShow) {
       const statusIcon = agent.status === 'running' ? chalk.yellow('◐') : chalk.green('✓');
       const type = chalk.magenta(agent.type);
-      const model = agent.model ? chalk.dim('[' + agent.model + ']') : '';
-      const desc = agent.description ? chalk.dim(': ' + this.truncateDesc(agent.description)) : '';
+      const model = agent.model ? chalk.cyan('[' + agent.model + ']') : '';
+      const desc = agent.description ? chalk.white(': ' + this.truncateDesc(agent.description)) : '';
 
       const now = Date.now();
       const start = agent.startTime?.getTime() || now;
       const end = agent.endTime?.getTime() || now;
       const elapsed = this.formatDuration(end - start);
 
-      lines.push(`${statusIcon} ${type}${model}${desc} ${chalk.dim('(' + elapsed + ')')}`);
+      lines.push(`${statusIcon} ${type}${model}${desc} ${chalk.yellow('(' + elapsed + ')')}`);
     }
 
     return lines.join('\n');

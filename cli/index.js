@@ -273,6 +273,15 @@ program
         configCounts = await configCounter.count(workspacePath);
       }
 
+      // 使用 Claude Code 提供的 context_window（最准确）
+      let contextUsageValue = contextUsageTokens;
+      let contextSizeValue = contextSize;
+
+      if (stdinData?.context_window) {
+        const cw = stdinData.context_window;
+        contextSizeValue = cw.context_window_size || contextSize;
+      }
+
       const context = {
         modelName: displayModel,
         currentDir: displayDir,
@@ -280,8 +289,8 @@ program
         usage,
         remaining,
         expiry,
-        contextUsage: contextUsageTokens,
-        contextSize,
+        contextUsage: contextUsageValue,
+        contextSize: contextSizeValue,
         configCounts,
         tools: [],
         agents: [],
@@ -295,8 +304,7 @@ program
         context.todos = transcript.todos;
       }
 
-      const output = renderer.render(context);
-      console.log(output);
+      console.log(renderer.render(context));
     } catch (error) {
       console.log(`❌ MiniMax 错误: ${error.message}`);
     }

@@ -101,7 +101,7 @@ class PromptStatus {
         : `${remaining.minutes}m`;
 
     // 添加到期信息（如果可用）
-    const expiryInfo = expiry ? ` ${chalk.gray('•')} 剩余: ${expiry.daysRemaining}天` : '';
+    const expiryInfo = expiry ? ` ${chalk.cyan('•')} 剩余: ${expiry.daysRemaining}天` : '';
 
     return `${color("●")} ${modelName} ${color(
       percentage + "%"
